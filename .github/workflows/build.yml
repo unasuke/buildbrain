@@ -68,14 +68,6 @@ jobs:
         run: make ldefconfig
       - name: Build Linux
         run: make lbuild
-
-      # - name: Build Debian Root # Wait for buildroot
-      #   run: |
-      #     ./tools/aptcache_linux_amd64 \
-      #       -rule 'local=localhost:65432, remote=ftp.us.debian.org' \
-      #       -rule 'local=localhost:65433, remote=security.debian.org' &
-      #     make debian
-
       - name: Setup releases
         id: release_name
         run: |
@@ -95,3 +87,35 @@ jobs:
           asset_path: release.zip
           asset_name: ${{ matrix.model }}-boot.zip
           asset_content_type: application/zip
+
+  build-sd:
+    runs-on: ubuntu-20.04
+    needs: [create_release]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Workaround for apt update failure
+        run: sudo rm /etc/apt/sources.list.d/github_git-lfs.*
+      - name: Install deps
+        run: sudo apt update && sudo apt install kpartx
+      - name: Configure for Linux
+        run: make ldefconfig
+      - name: Build Linux
+        run: make lbuild
+      - name: Build Debian Root
+        run: make debian
+      - name: Build SD image
+        run: make image/sd.img
+      - name: Compress
+        run: zip sdimage-${GITHUB_REF/refs\/*s\//}.zip image/sd.img
+      - name: Upload the image
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: sdimage-${GITHUB_REF/refs\/*s\//}.zip
+          asset_name: sdimage-${GITHUB_REF/refs\/*s\//}.zip
+          asset_content_type: application/zip
+

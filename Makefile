@@ -86,10 +86,22 @@ debian:
 		exit 1; \
 	fi
 	mkdir -p debian
-	sudo debootstrap --arch=armel --foreign buster debian/ http://localhost:65432/debian/
+	@if [ "$(CI)" == "true" ]; then \
+		echo "I'm in CI and debootstrap without cache."
+		sudo debootstrap --arch=armel --foreign buster debian/; \
+	else; \
+		sudo debootstrap --arch=armel --foreign buster debian/ http://localhost:65432/debian/; \
+	fi
 	sudo cp /usr/bin/qemu-arm-static debian/usr/bin/
 	sudo cp ./tools/setup_debian.sh debian/
-	sudo chroot debian /setup_debian.sh
+	sudo -E chroot debian /setup_debian.sh
+
+image/sd.img: clean_work
+	./image/build_image.sh
+
+.PHONY:
+clean_work:
+	sudo rm -rf image/work
 
 .PHONY:
 aptcache:
